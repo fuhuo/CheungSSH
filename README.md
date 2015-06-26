@@ -1,4 +1,5 @@
 # by fuhuo
+同步了v119的vi支持
 基于chungssh_v117版本在原作者的工具基础上增加了-g和-o选项，设定进入时选定的组或者IP
 
 cheungssh.py -g "group-name"
