@@ -2,17 +2,45 @@
 # coding:utf8
 # Author=Cheung Kei-Chuen
 # QQ=2418731289
-VERSION = 115
-import os, sys
+# Fork by fuhuo
+# QQ:342654184
+
+VERSION = 117
+FUHUO_VERSION = 1.0
+import os
+import sys
+import threading
+import socket
+import ConfigParser
+import time
+import commands
+import re
+import getpass
+import shutil
+import random
 
 os.sys.path.insert(0, os.path.abspath('./'))
+os.sys.path.insert(0,os.path.abspath('./libs'))
 os.sys.path.insert(0, os.path.abspath('/cheung/bin/'))
 try:
-    import paramiko, threading, socket, ConfigParser, time, commands, threading, re, getpass, Format_Char_Show, shutil, \
-        random, getpass, LogCollect, readline, filemd5, command_tab, GetFile, UpdateFile
+    import paramiko
+    import readline
 except Exception, e:
     print "\033[1m\033[1;31m-ERR %s\033[0m\a" % (e)
     sys.exit(1)
+
+
+try:
+    import Format_Char_Show
+    import LogCollect
+    import filemd5
+    import command_tab
+    import GetFile
+    import UpdateFile
+except Exception, e:
+    print "\033[1m\033[1;31m-ERR %s\033[0m\a" % (e)
+    sys.exit(1)
+
 reload(sys)
 sys.setdefaultencoding('utf8')
 LogFile = '/cheung/logs/cheungssh.log'
@@ -155,7 +183,7 @@ def SSH_cmd(ip, username, password, port, cmd, UseLocalScript, OPTime):
     ResultSumLog = ''
     DeploymentStatus = False
     DeploymentInfo = None
-    PWD = re.sub("/{2,}", "/", PWD)
+    PWD = ""#re.sub("/{2,}", "/", PWD)
     try:
         o = None
         err = None
@@ -610,6 +638,7 @@ def Main_p():
             else:
                 print "hosts文件中没有在组%s中查找到的IP %s，请重新确认输入"%("all" if not option.group else option.group, \
                                                                           Not_In_Servers)
+                sys.exit()
 
         if NoPassword and UseKey == "N":
             SetPassword = getpass.getpass(
@@ -633,7 +662,8 @@ def Main_p():
                     sys.exit()
         if option.excute_type == "cmd":
             if option.command:
-                pass
+                cmd = option.command
+                Run_Cmd(cmd)
             else:
                 Excute_cmd()
         elif option.excute_type == "upload":
@@ -707,8 +737,11 @@ def Main_p():
                         print "已取消提醒"
                     except Exception, e:
                         print "取消提醒失败(%s)" % e
-
-            Excute_cmd()
+            if option.command:
+                cmd = option.command
+                Run_Cmd(cmd)
+            else:
+                Excute_cmd()
             sys.exit(0)
         else:
             print "Parameter does not currently support\t(%s)\a" % (option.excute_type)
@@ -827,25 +860,21 @@ def Excute_cmd_root(s, Port, Username, Password, Passwordroot, cmd, UseLocalScri
 
 
 def Excute_cmd():
-    global All_Servers_num_all, All_Servers_num, All_Servers_num_Succ, Done_Status, \
-        Logcmd, ListenLog, Global_start_time, PWD, FailIP, ScriptFilePath, CONFMD5, HOSTSMD5, HostsGroup, Servers
+    global  Done_Status, Logcmd, ListenLog, Global_start_time, PWD, FailIP, \
+        ScriptFilePath, CONFMD5, HOSTSMD5, HostsGroup, Servers
     Done_Status = 'end'
-    All_Servers_num = 0
-    All_Servers_num_Succ = 0
-    UseLocalScript = 'N'  #
     PWD = '~'
     IS_PWD = False
     UseSystem = False
     Servers_T = Servers
     FailIP = []
-    LastCMD = []
+    LastCMD = ''
     if Useroot == "Y":
         CmdPrompt = "CheungSSH root"
     else:
         CmdPrompt = "CheungSSH"
     while True:
-        All_Servers_num_all = len(Servers_T)
-        OPTime = time.strftime('%Y%m%d%H%M%S', time.localtime())
+#        All_Servers_num_all = len(Servers_T)
         Askreboot = "no"
         if Done_Status == 'end':
             try:
@@ -928,32 +957,6 @@ def Excute_cmd():
                 PWD = PWD
             else:
                 PWD = "cd %s;" % PWD
-        if re.search("^ *[Rr][Uu][Nn]", cmd):
-            try:
-                ScriptFilePath = cmd.split()[1]
-                if not os.path.isfile(ScriptFilePath):
-                    print "您指的定程序[%s]不存在！" % ScriptFilePath
-                    continue
-                else:
-                    ScriptFlag = str(random.randint(999999999, 999999999999))
-                    d_file = '/tmp/' + os.path.basename(ScriptFilePath) + ScriptFlag
-                    for s in Servers_T:
-                        d_file = '/tmp/' + os.path.basename(ScriptFilePath) + ScriptFlag
-                        if UseKey == "Y":
-                            LocalScriptUpload(s, ServersPort[s], ServersUsername[s], None, ScriptFilePath, d_file)
-                        else:
-                            LocalScriptUpload(s, ServersPort[s], ServersUsername[s], ServersPassword[s], ScriptFilePath,
-                                              d_file)
-                    Newcmd = """chmod a+x %s;%s;rm -f %s""" % (d_file, d_file, d_file)
-                    UseLocalScript = "Y"
-                    Logcmd = ScriptFilePath
-            except IndexError:
-                print "您尚未指定本服务器上的脚本路径 用法: run /path/scriptfile"
-                continue
-        else:
-            UseLocalScript = "N"
-            Newcmd = cmd
-            Logcmd = cmd
 
         if re.search("^ *[Ee][Xx][Ii][Tt] *$", cmd):
             sys.exit(0)
@@ -1092,102 +1095,142 @@ def Excute_cmd():
         if len(Servers_T) == 0:
             print "\033[1;33m当前没有设定服务器地址,或者选定的主机组中的服务器列表为空\033[0m"
             continue
-        #本地vi编辑支持
-        if re.search("^ *vim? +",cmd):
-            if not os.path.isfile("/cheung/flag/.NoAskEdit"):
-                AskEdit = raw_input("您当前要编辑远程服务器上的文件，编辑完成后，所有服务器上的[%s]都将是您本次编辑的内容且内容一样。您是否同意这样的行为(yes/no)? ")
-                if not re.search("^ *[Yy]([Ee][Ss])? *$", AskEdit):
-                    print "忽略本次操作[%s]"% cmd
-                    continue
-                else:
-                    NoAskEdit = raw_input("是否取消以上提示(yes/no) ? ")
-                    if  re.search("^ *[Yy]([Ee][Ss])? *$", NoAskEdit):
-                        try:
-                            os.mknod("/cheung/flag/.NoAskEdit")
-                            print "已取消"
-                        except Exception,e:
-                            print "取消失败 (%s)" % e
+        LastCMD = Run_Cmd(cmd)
 
-            try:
-
-                EditFile = cmd.split()[1]
-                FileFlag = EditFile +str(random.randint(999999999,999999999999))
-                for a in Servers_T:
-                    if UseKey == 'Y':
-                        IsEdit = GetFile.GetFile(a,ServersPort[a],ServersUsername[a],None,'Y',EditFile,FileFlag)
-                    else:
-                        IsEdit = GetFile.GetFile(a,ServersPort[a],ServersUsername[a],ServersPassword[a],'N',EditFile,FileFlag)
-
-                    break
-                if IsEdit:
-                    print 'Editing...'
-                    ViFile = "/tmp/" + os.path.basename(FileFlag)
-                    FileMD5 = filemd5.main(ViFile)
-                    try:
-                        os.system("vi %s"%ViFile)
-                        if not FileMD5 == filemd5.main(ViFile):
-                            os.system("clear")
-                            print "Updateing  [%s] ..." % EditFile
-                            #if SysVersion<2.6:
-                            if UseKey == 'Y':
-                                for a in Servers_T:
-                                    UpdateFile.UpdateFile(a, ServersPort[a], ServersUsername[a], \
-                                                          None, 'Y', ViFile, EditFile)
-                            else:
-                                for a in Servers_T:
-                                    UpdateFile.UpdateFile(a, ServersPort[a], ServersUsername[a], \
-                                                          ServersPassword[a], 'N', ViFile, EditFile)
-
-
-
-                    except Exception,e:
-                        print "编辑文件失败", '\n', e
-            except Exception,e:
-                print "操作失败: ", '\n', e
-            continue
-
-        Global_start_time = time.time()
-        FailIP = []
-        LastCMD = cmd
-        ScriptFlag = str(random.randint(999999999, 999999999999))
-        Done_Status = 'start'
-        for s in Servers_T:
-            if RunMode.upper() == 'M':
-                if Useroot == 'Y':
-                    if UseKey == "Y":
-                        a = threading.Thread(target=Excute_cmd_root, args=(
-                        s, ServersPort[s], ServersUsername[s], None, ServersRootPassword[s], Newcmd, UseLocalScript,
-                        OPTime))
-                    else:
-                        a = threading.Thread(target=Excute_cmd_root, args=(
-                        s, ServersPort[s], ServersUsername[s], ServersPassword[s], ServersRootPassword[s], Newcmd,
-                        UseLocalScript, OPTime))
-                    a.start()
-                else:
-                    if UseKey == "Y":
-                        a = threading.Thread(target=SSH_cmd, args=(
-                        s, ServersUsername[s], None, ServersPort[s], Newcmd, UseLocalScript, OPTime))
-                    else:
-                        a = threading.Thread(target=SSH_cmd, args=(
-                        s, ServersUsername[s], ServersPassword[s], ServersPort[s], Newcmd, UseLocalScript, OPTime))
-
-                    a.start()
-
+def Run_Cmd(cmd):
+    global All_Servers_num_all, All_Servers_num, All_Servers_num_Succ, Done_Status, \
+        Logcmd, ListenLog, Global_start_time, PWD, FailIP, ScriptFilePath, CONFMD5, HOSTSMD5, HostsGroup, Servers
+    Servers_T = Servers
+    All_Servers_num_all = len(Servers_T)
+    All_Servers_num = 0
+    All_Servers_num_Succ = 0
+    UseLocalScript = 'N'
+    FailIP = []
+    LastCMD = ''
+    OPTime = time.strftime('%Y%m%d%H%M%S', time.localtime())
+    if re.search("^ *[Rr][Uu][Nn]", cmd):
+        try:
+            ScriptFilePath = cmd.split()[1]
+            if not os.path.isfile(ScriptFilePath):
+                print "您指的定程序[%s]不存在！" % ScriptFilePath
+                return
             else:
-                if Useroot == 'Y':
+                ScriptFlag = str(random.randint(999999999, 999999999999))
+                d_file = '/tmp/' + os.path.basename(ScriptFilePath) + ScriptFlag
+                for s in Servers_T:
+                    d_file = '/tmp/' + os.path.basename(ScriptFilePath) + ScriptFlag
                     if UseKey == "Y":
-                        Excute_cmd_root(s, ServersPort[s], ServersUsername[s], None, ServersRootPassword[s], Newcmd,
-                                        UseLocalScript, OPTime)
+                        LocalScriptUpload(s, ServersPort[s], ServersUsername[s], None, ScriptFilePath, d_file)
                     else:
-                        Excute_cmd_root(s, ServersPort[s], ServersUsername[s], ServersPassword[s],
-                                        ServersRootPassword[s], Newcmd, UseLocalScript, OPTime)
-                else:
-                    if Deployment == 'Y':
-                        ListenLog = """if [ ! -r %s ] ; then echo -e '\033[1m\033[1;31m-ERR ListenFile %s  not exists,so do not excute commands !\033[1m\033[0m\a ' 1>&2 ;exit;else nohup tail -n 0 -f  %s  2&>%s &   fi;""" % (
-                        ListenFile, ListenFile, ListenFile, DeploymentFlag)
-                    SSH_cmd(s, ServersUsername[s], ServersPassword[s], ServersPort[s], Newcmd, UseLocalScript, OPTime)
+                        LocalScriptUpload(s, ServersPort[s], ServersUsername[s], ServersPassword[s], ScriptFilePath,
+                                          d_file)
+                Newcmd = """chmod a+x %s;%s;rm -f %s""" % (d_file, d_file, d_file)
+                UseLocalScript = "Y"
+                Logcmd = ScriptFilePath
+        except IndexError:
+            print "您尚未指定本服务器上的脚本路径 用法: run /path/scriptfile"
+            return
+    else:
+        UseLocalScript = "N"
+        Newcmd = cmd
+        Logcmd = cmd
 
-                ############################################################################################
+    #本地vi编辑支持
+    if re.search("^ *vim? +",cmd):
+        if not os.path.isfile("/cheung/flag/.NoAskEdit"):
+            AskEdit = raw_input("您当前要编辑远程服务器上的文件，编辑完成后，所有服务器上的[%s]都将是您本次编辑的内容且内容一样。您是否同意这样的行为(yes/no)? ")
+            if not re.search("^ *[Yy]([Ee][Ss])? *$", AskEdit):
+                print "忽略本次操作[%s]"% cmd
+                return
+            else:
+                NoAskEdit = raw_input("是否取消以上提示(yes/no) ? ")
+                if  re.search("^ *[Yy]([Ee][Ss])? *$", NoAskEdit):
+                    try:
+                        os.mknod("/cheung/flag/.NoAskEdit")
+                        print "已取消"
+                    except Exception,e:
+                        print "取消失败 (%s)" % e
+
+        try:
+
+            EditFile = cmd.split()[1]
+            FileFlag = EditFile +str(random.randint(999999999,999999999999))
+            for a in Servers_T:
+                if UseKey == 'Y':
+                    IsEdit = GetFile.GetFile(a,ServersPort[a],ServersUsername[a],None,'Y',EditFile,FileFlag)
+                else:
+                    IsEdit = GetFile.GetFile(a,ServersPort[a],ServersUsername[a],ServersPassword[a],'N',EditFile,FileFlag)
+
+                break
+            if IsEdit:
+                print 'Editing...'
+                ViFile = "/tmp/" + os.path.basename(FileFlag)
+                FileMD5 = filemd5.main(ViFile)
+                try:
+                    os.system("vi %s"%ViFile)
+                    if not FileMD5 == filemd5.main(ViFile):
+                        os.system("clear")
+                        print "Updateing  [%s] ..." % EditFile
+                        #if SysVersion<2.6:
+                        if UseKey == 'Y':
+                            for a in Servers_T:
+                                UpdateFile.UpdateFile(a, ServersPort[a], ServersUsername[a], \
+                                                      None, 'Y', ViFile, EditFile)
+                        else:
+                            for a in Servers_T:
+                                UpdateFile.UpdateFile(a, ServersPort[a], ServersUsername[a], \
+                                                      ServersPassword[a], 'N', ViFile, EditFile)
+
+
+
+                except Exception,e:
+                    print "编辑文件失败", '\n', e
+        except Exception,e:
+            print "操作失败: ", '\n', e
+        return
+
+    Global_start_time = time.time()
+    FailIP = []
+    LastCMD = cmd
+    ScriptFlag = str(random.randint(999999999, 999999999999))
+    Done_Status = 'start'
+    for s in Servers_T:
+        if RunMode.upper() == 'M':
+            if Useroot == 'Y':
+                if UseKey == "Y":
+                    a = threading.Thread(target=Excute_cmd_root, args=(
+                    s, ServersPort[s], ServersUsername[s], None, ServersRootPassword[s], Newcmd, UseLocalScript,
+                    OPTime))
+                else:
+                    a = threading.Thread(target=Excute_cmd_root, args=(
+                    s, ServersPort[s], ServersUsername[s], ServersPassword[s], ServersRootPassword[s], Newcmd,
+                    UseLocalScript, OPTime))
+                a.start()
+            else:
+                if UseKey == "Y":
+                    a = threading.Thread(target=SSH_cmd, args=(
+                    s, ServersUsername[s], None, ServersPort[s], Newcmd, UseLocalScript, OPTime))
+                else:
+                    a = threading.Thread(target=SSH_cmd, args=(
+                    s, ServersUsername[s], ServersPassword[s], ServersPort[s], Newcmd, UseLocalScript, OPTime))
+
+                a.start()
+
+        else:
+            if Useroot == 'Y':
+                if UseKey == "Y":
+                    Excute_cmd_root(s, ServersPort[s], ServersUsername[s], None, ServersRootPassword[s], Newcmd,
+                                    UseLocalScript, OPTime)
+                else:
+                    Excute_cmd_root(s, ServersPort[s], ServersUsername[s], ServersPassword[s],
+                                    ServersRootPassword[s], Newcmd, UseLocalScript, OPTime)
+            else:
+                if Deployment == 'Y':
+                    ListenLog = """if [ ! -r %s ] ; then echo -e '\033[1m\033[1;31m-ERR ListenFile %s  not exists,so do not excute commands !\033[1m\033[0m\a ' 1>&2 ;exit;else nohup tail -n 0 -f  %s  2&>%s &   fi;""" % (
+                    ListenFile, ListenFile, ListenFile, DeploymentFlag)
+                SSH_cmd(s, ServersUsername[s], ServersPassword[s], ServersPort[s], Newcmd, UseLocalScript, OPTime)
+    return LastCMD
+            ############################################################################################
 
 
 if __name__ == '__main__':
