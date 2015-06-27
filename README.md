@@ -4,10 +4,19 @@
 我只是在其基础上作一些修改，已得原作者同意
 
 修改项如下：
+2015-06-28：增加-c(--command)参数，修改了一些代码以符合PEP8
+
+example：
+
+cheungssh.py -g "group-name" -c "df -h"
+
+cheungssh.py -o 127.0.0.1,127.0.0.2 -c "df -h"
 
 同步了v119的vi支持
 
-基于chungssh_v117版本在原作者的工具基础上增加了-g和-o选项，设定进入时选定的组或者IP
+基于chungssh_v117版本在原作者的工具基础上增加了-g(--group)和-o(--host)选项，设定进入时选定的组或者IP
+
+example：
 
 cheungssh.py -g "group-name"
 
@@ -15,11 +24,15 @@ cheungssh.py -t upload -g "group-name" -s /local/file  -d /remote/dir
 
 
 
+example：
+
 cheungssh.py -o 127.0.0.1
 
 cheungssh.py -o 127.0.0.1,127.0.0.2
 
 cheungssh.py -g "group-name" -o 127.0.0.1
+
+
 
 
 原作者的话：
