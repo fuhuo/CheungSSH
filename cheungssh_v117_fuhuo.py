@@ -663,7 +663,7 @@ def Main_p():
         if option.excute_type == "cmd":
             if option.command:
                 cmd = option.command
-                Run_Cmd(cmd)
+                Run_cmd(cmd)
             else:
                 Excute_cmd()
         elif option.excute_type == "upload":
@@ -739,7 +739,7 @@ def Main_p():
                         print "取消提醒失败(%s)" % e
             if option.command:
                 cmd = option.command
-                Run_Cmd(cmd)
+                Run_cmd(cmd)
             else:
                 Excute_cmd()
             sys.exit(0)
@@ -1095,9 +1095,10 @@ def Excute_cmd():
         if len(Servers_T) == 0:
             print "\033[1;33m当前没有设定服务器地址,或者选定的主机组中的服务器列表为空\033[0m"
             continue
-        LastCMD = Run_Cmd(cmd)
+        Servers = Servers_T
+        LastCMD = Run_cmd(cmd)
 
-def Run_Cmd(cmd):
+def Run_cmd(cmd):
     global All_Servers_num_all, All_Servers_num, All_Servers_num_Succ, Done_Status, \
         Logcmd, ListenLog, Global_start_time, PWD, FailIP, ScriptFilePath, CONFMD5, HOSTSMD5, HostsGroup, Servers
     Servers_T = Servers
