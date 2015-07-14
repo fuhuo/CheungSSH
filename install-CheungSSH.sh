@@ -104,7 +104,7 @@ except AttributeError:
  os.system("""sed  -i '/You should rebuild using libgmp/d;/HAVE_DECL_MPZ_POWM_SEC/d'  /usr/lib64/python*/site-packages/Crypto/Util/number.py       /usr/lib/python*/site-packages/pycrypto*/Crypto/Util/number.py""") #有的系统可能需要修改一下这个语句，否则会报错
 EOF
 cp *py /cheung/bin/ 2>/dev/null
-echo 'PATH=$PATH:/cheung/bin' >>/etc/profile
+echo 'PATH=$PATH:`pwd`/bin' >>/etc/profile
 . /etc/profile
 echo "恭喜，您已经安装好了环境，接下来请您使用 ./`ls cheungssh*` 启动程序"
 
