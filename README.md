@@ -5,6 +5,14 @@
 
 修改项如下：
 
+##2015-07-15
+
+>同步更新到v125的sudo支持，对模块进行目录管理
+
+##2015-07-02：
+
+>已更新到V120版本
+
 ##2015-06-28：
 
 >增加-c(--command)参数，修改了一些代码以符合PEP8
@@ -43,9 +51,9 @@ cheungssh.py -o 127.0.0.1,127.0.0.2
 cheungssh.py -g "group-name" -o 127.0.0.1
 ```
 
-原作者的github：https://github.com/zhangqichuan/CheungSSH
+#关于原作者
 
-原作者的话：
+原作者的github：https://github.com/zhangqichuan/CheungSSH
 
 # CheungSSH
 比Ansibel更好用的自动化工具
